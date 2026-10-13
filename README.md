@@ -2,8 +2,9 @@
 
 A squishy, translucent citrus-slice jelly you can poke, stretch, toss — and **cut into pieces with a knife** — on a kitchen cutting board. Runs in the browser, one HTML file, no build step.
 
-![Knife pressing into the jelly](docs/images/cutting.jpg)
-![The slice cut into four pieces](docs/images/pieces.jpg)
+![Slicing a lime jelly into pieces with the knife](docs/media/demo.gif)
+
+<sub>Higher quality: [docs/media/demo.mp4](docs/media/demo.mp4)</sub>
 
 **Live demo:** enable GitHub Pages (Settings → Pages → Deploy from branch → `main` / root) and open `https://maplerivertree.github.io/jelly_slice/`.
 
@@ -48,7 +49,7 @@ Then open <http://localhost:8000>. (Double-clicking `index.html` usually works t
 ```
 index.html              the whole app (≈1000 lines, sectioned with "// ----------" headers)
 docs/HOW-IT-WORKS.md    detailed build notes
-docs/images/            screenshots
+docs/media/             demo GIF + video
 LICENSE                 MIT
 ```
 
