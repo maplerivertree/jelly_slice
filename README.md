@@ -12,12 +12,12 @@ A squishy, translucent citrus-slice jelly you can poke, stretch, toss — and **
 
 A spooky second kitchen lives alongside the citrus one in [`halloween/index.html`](halloween/index.html). It uses the same squishy physics and the same knife, with a new kitchen and new jellies.
 
-![Slicing a glowing jack-o'-lantern jelly in the haunted kitchen](docs/media/halloween.gif)
+![Slicing the party blob jelly in the haunted kitchen, with the SMB pumpkin on the window sill](docs/media/halloween.gif)
 
 <sub>Higher quality: [docs/media/halloween.mp4](docs/media/halloween.mp4)</sub>
 
-- **Six flavours:** Jack-o'-lantern (its carved face glows and flickers like a candle), Eyeball, Toxic slime, Spiderweb, Candy corn and Ghost. Each one is painted at runtime on `<canvas>`, with an extra *glow* layer that lights the jelly from inside.
-- **A haunted kitchen:** moonlight through a window onto a graveyard, glowing jack-o'-lanterns, dripping candles, a bubbling cauldron, a jar of gummy eyeballs, a dangling spider and a couple of bats. Like the citrus kitchen, everything is generated in code with no image assets.
+- **Seven flavours:** the **Party blob** drops by default. It's a grinning yellow blob in a party hat, and its glow cycles through the rainbow like the party-blob emoji. The others are Jack-o'-lantern (its carved face glows and flickers like a candle), Eyeball, Toxic slime, Spiderweb, Candy corn and Ghost. Each one is painted at runtime on `<canvas>`, with an extra *glow* layer that lights the jelly from inside.
+- **A haunted kitchen:** moonlight through a window onto a graveyard, glowing jack-o'-lanterns (including a cute one on the window sill with **SMB** carved into it), dripping candles, a bubbling cauldron, a jar of gummy eyeballs, a dangling spider and a couple of bats. Like the citrus kitchen, everything is generated in code with no image assets.
 - **Same controls** as the table below. With Pages enabled it lives at `https://maplerivertree.github.io/jelly_slice/halloween/`.
 
 ## Run it locally
@@ -42,7 +42,7 @@ Then open <http://localhost:8000>, or <http://localhost:8000/halloween/> for the
 | | `Q` / `E` | rotate the blade |
 | | right-drag | orbit the camera |
 | any | `R` / **New slice** | drop a fresh slice |
-| any | fruit chips | orange, lemon, lime, grapefruit, blood orange (Halloween: six spooky flavours) |
+| any | fruit chips | orange, lemon, lime, grapefruit, blood orange (Halloween: party blob + six spooky flavours) |
 | any | **Firmness** slider | gooey ↔ gummy |
 
 ## How it's built (short version)
@@ -60,7 +60,7 @@ Then open <http://localhost:8000>, or <http://localhost:8000/halloween/> for the
 
 ```
 index.html              the whole app (≈1000 lines, sectioned with "// ----------" headers)
-halloween/index.html    the Halloween edition: same engine, haunted kitchen, six spooky flavours
+halloween/index.html    the Halloween edition: same engine, haunted kitchen, seven flavours
 docs/HOW-IT-WORKS.md    detailed build notes
 docs/media/             demo GIFs + videos (citrus and Halloween)
 LICENSE                 MIT

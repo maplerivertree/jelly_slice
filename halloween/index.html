@@ -6,7 +6,7 @@
 <title>Halloween Jelly</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Creepster&display=swap">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Creepster&family=Fredoka:wght@700&display=swap">
 <style>
   :root { --ink:#f3e4cf; --panel:rgba(24,15,32,.8); --line:rgba(255,160,80,.18); --accent:#ff7a1a; }
   html,body { margin:0; height:100%; background:#120b1c; color:var(--ink);
@@ -70,8 +70,9 @@ import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 // is identical to the citrus page; material, knife and UI differ only in small tweaks (see docs/HOW-IT-WORKS.md §11)
 
 // ---------- flavours (each brings its own painter, see "halloween slice textures") ----------
-// glow = emissive strength of the painted glow layer; flicker = it breathes like a candle
+// glow = emissive strength of the painted glow layer; flicker = it breathes like a candle; party = the glow cycles the rainbow
 const FLAVORS = {
+  party:   { name:'Party blob',  dot:'conic-gradient(#ff4f7b,#ffd52e,#7be04a,#3fb8ff,#b26bff,#ff4f7b)', atten:'#ffc400', glow:0.8, party:true, paint:paintParty },
   pumpkin: { name:"Jack-o'-lantern", dot:'#ff7a1a', atten:'#ff7a10', glow:1.7, flicker:true, paint:paintPumpkin },
   eyeball: { name:'Eyeball',     dot:'radial-gradient(circle,#111 0 22%,#4a9a3c 26% 48%,#f4ece2 52%)', atten:'#ffc9bd', glow:0.6, paint:paintEyeball },
   slime:   { name:'Toxic slime', dot:'#8cff2e', atten:'#30b400', glow:0.9, paint:paintSlime },
@@ -289,11 +290,11 @@ function buildKitchen() {
   board.position.z = 0.1;
   k.add(shadowy(board));
 
-  // moonlit window with a graveyard view (and a cobweb in the corner)
+  // moonlit window with a graveyard view, a deep sill and a cobweb in the corner
   const win = new THREE.Group(), ww = 2.6, wh = 2.2, ft = 0.12;
   win.add(new THREE.Mesh(new THREE.PlaneGeometry(ww, wh), new THREE.MeshBasicMaterial({ map: skyTex, fog: false })));
   const frameMat = new THREE.MeshStandardMaterial({ color: '#2b1c14', roughness: 0.7 });
-  for (const [w, h, d, x, y] of [[ww + 2 * ft, ft, 0.16, 0, wh / 2 + ft / 2], [ww + 2 * ft + 0.2, ft, 0.34, 0, -wh / 2 - ft / 2],
+  for (const [w, h, d, x, y] of [[ww + 2 * ft, ft, 0.16, 0, wh / 2 + ft / 2], [ww + 2 * ft + 0.2, ft, 0.62, 0, -wh / 2 - ft / 2],
     [ft, wh, 0.16, -ww / 2 - ft / 2, 0], [ft, wh, 0.16, ww / 2 + ft / 2, 0], [0.05, wh, 0.06, 0, 0], [ww, 0.05, 0.06, 0, wh * 0.12]]) {
     const bar = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), frameMat); bar.position.set(x, y, d / 2); win.add(bar);
   }
@@ -310,18 +311,29 @@ function buildKitchen() {
   win.position.set(-1.0, 0.3 + wh / 2, WALL_Z + 0.002);
   k.add(win);
 
-  // jack-o'-lanterns: lobed spheres with a painted carving that glows, and a flickering light inside
-  const lantern = (r, angry, power, seed) => {
+  // jack-o'-lanterns: lobed spheres with a painted carving that glows, and a flickering light inside.
+  // A carving paints itself centred on (x, y) in the given style: a carved face, or a word in a web font
+  const faceCarve = angry => (g, x, y, { fill, stroke, width }) => {
+    facePath(g, x, y, 150, angry);
+    if (stroke) { g.strokeStyle = stroke; g.lineWidth = width; g.lineJoin = 'round'; g.stroke(); }
+    g.fillStyle = fill; g.fill();
+  };
+  const textCarve = (text, font) => (g, x, y, { fill, stroke, width }) => {
+    g.font = font; g.textAlign = 'center'; g.textBaseline = 'middle';
+    if (stroke) { g.strokeStyle = stroke; g.lineWidth = width; g.lineJoin = 'round'; g.strokeText(text, x, y); }
+    g.fillStyle = fill; g.fillText(text, x, y);
+  };
+  const lantern = (r, carve, power, seed, { squash = 0.78, groove = 0.1, skinCol = '#e46c10', font } = {}) => {
     const geo = new THREE.SphereGeometry(r, 72, 40), P = geo.attributes.position, v = new THREE.Vector3();
     for (let i = 0; i < P.count; i++) {
       v.fromBufferAttribute(P, i);
-      const lobe = 0.9 + 0.1 * Math.sqrt(Math.abs(Math.cos(4 * Math.atan2(v.z, v.x)))), ring = Math.hypot(v.x, v.z) / r;
-      P.setXYZ(i, v.x * lobe, v.y * 0.78 - Math.sign(v.y) * 0.18 * r * (1 - ring) ** 2, v.z * lobe);
+      const lobe = 1 - groove + groove * Math.sqrt(Math.abs(Math.cos(4 * Math.atan2(v.z, v.x)))), ring = Math.hypot(v.x, v.z) / r;
+      P.setXYZ(i, v.x * lobe, v.y * squash - Math.sign(v.y) * 0.18 * r * (1 - ring) ** 2, v.z * lobe);
     }
-    geo.computeVertexNormals();
-    // equirectangular maps: u = 0.25 is +z, so that is where the face goes; the 8 grooves sit at u = 7/16 - k/8
-    const skin = canvasTex(1024, 512, (g, w, h) => {
-      g.fillStyle = '#e46c10'; g.fillRect(0, 0, w, h);
+    geo.computeVertexNormals(); geo.computeBoundingBox();
+    // equirectangular maps: u = 0.25 is +z, so that is where the carving goes; the 8 grooves sit at u = 7/16 - k/8
+    const paintSkin = (g, w, h) => {
+      g.fillStyle = skinCol; g.fillRect(0, 0, w, h);
       for (let i = 0; i < 400; i++) {
         const x = krnd() * w; g.strokeStyle = `rgba(${krnd() < 0.5 ? '255,170,60' : '150,50,0'},0.08)`; g.lineWidth = 2 + krnd() * 6;
         g.beginPath(); g.moveTo(x, 0); g.bezierCurveTo(x + 10, h * 0.3, x - 10, h * 0.7, x, h); g.stroke();
@@ -332,30 +344,50 @@ function buildKitchen() {
       const pole = g.createLinearGradient(0, 0, 0, h);
       pole.addColorStop(0, 'rgba(70,30,0,0.6)'); pole.addColorStop(0.18, 'rgba(70,30,0,0)'); pole.addColorStop(0.82, 'rgba(70,30,0,0)'); pole.addColorStop(1, 'rgba(70,30,0,0.6)');
       g.fillStyle = pole; g.fillRect(0, 0, w, h);
-      facePath(g, w * 0.25, h * 0.47, 150, angry);
-      g.strokeStyle = '#f2d08a'; g.lineWidth = 12; g.lineJoin = 'round'; g.stroke();
-      g.fillStyle = '#ffd26a'; g.fill();
-    });
-    const glow = canvasTex(1024, 512, (g, w, h) => {
+      carve(g, w * 0.25, h * 0.47, { fill: '#ffd26a', stroke: '#f2d08a', width: 12 });
+    };
+    const paintGlow = (g, w, h) => {
       g.fillStyle = '#000'; g.fillRect(0, 0, w, h);
-      facePath(g, w * 0.25, h * 0.47, 150, angry);
-      g.filter = 'blur(16px)'; g.fillStyle = 'rgba(255,110,10,0.7)'; g.fill();
-      g.filter = 'none'; g.fillStyle = '#ffc04a'; g.fill();
-    });
+      g.filter = 'blur(16px)'; carve(g, w * 0.25, h * 0.47, { fill: 'rgba(255,110,10,0.7)' });
+      g.filter = 'none'; carve(g, w * 0.25, h * 0.47, { fill: '#ffc04a' });
+    };
+    const skin = canvasTex(1024, 512, paintSkin), glow = canvasTex(1024, 512, paintGlow);
+    if (font) document.fonts?.load(font).then(() => { // repaint once the web font is in
+      paintSkin(skin.image.getContext('2d'), 1024, 512); paintGlow(glow.image.getContext('2d'), 1024, 512);
+      skin.needsUpdate = glow.needsUpdate = true;
+    }).catch(() => {});
     const mat = new THREE.MeshStandardMaterial({ map: skin, emissiveMap: glow, emissive: '#ffffff', emissiveIntensity: 1.6, roughness: 0.55, bumpMap: dimpleTex, bumpScale: 0.3 });
     const g = new THREE.Group(); g.add(new THREE.Mesh(geo, mat));
     const sgeo = new THREE.CylinderGeometry(r * 0.06, r * 0.1, r * 0.38, 7, 4), sp = sgeo.attributes.position;
     for (let i = 0; i < sp.count; i++) sp.setX(i, sp.getX(i) + (sp.getY(i) / (r * 0.38) + 0.5) ** 2 * r * 0.12);
     sgeo.computeVertexNormals();
     const stem = new THREE.Mesh(sgeo, new THREE.MeshStandardMaterial({ color: '#4f4a22', roughness: 0.9 }));
-    stem.position.y = r * 0.72; g.add(stem);
+    stem.position.y = (squash - 0.06) * r; g.add(stem);
     const light = new THREE.PointLight('#ff8a2a', power, 0, 2); light.position.set(0, r * 0.35, r * 0.45); g.add(light);
     animators.push(t => { const f = flicker(t, seed); light.intensity = power * f; mat.emissiveIntensity = 1.6 * f; });
+    g.userData.lift = -geo.boundingBox.min.y; // raise by this to sit on a surface
     return g;
   };
-  const big = lantern(0.85, false, 8, 0); big.position.set(-4.2, COUNTER_Y + 0.66 * 0.85, -2.6); big.rotation.y = 0.45;
-  const small = lantern(0.5, true, 0.9, 2.7); small.position.set(-3.75, COUNTER_Y + 0.66 * 0.5, -0.7); small.rotation.y = 0.75;
+  const big = lantern(0.85, faceCarve(false), 8, 0); big.position.set(-4.2, COUNTER_Y + big.userData.lift, -2.6); big.rotation.y = 0.45;
+  const small = lantern(0.5, faceCarve(true), 0.9, 2.7); small.position.set(-3.75, COUNTER_Y + small.userData.lift, -0.7); small.rotation.y = 0.75;
   k.add(shadowy(big), shadowy(small));
+
+  // a cute one on the window sill, under the moon: squat, bright, "SMB" carved in rounded letters, with a curly vine and a leaf
+  const SMB_FONT = '700 132px Fredoka, "Arial Rounded MT Bold", "Trebuchet MS", sans-serif';
+  const cute = lantern(0.5, textCarve('SMB', SMB_FONT), 1.2, 5.1, { squash: 0.72, groove: 0.07, skinCol: '#f68c22', font: SMB_FONT });
+  const leafy = new THREE.MeshStandardMaterial({ color: '#4f9a2c', roughness: 0.55, side: THREE.DoubleSide });
+  const tendril = new THREE.CatmullRomCurve3(Array.from({ length: 28 }, (_, i) => {
+    const a = i * 0.55, rr = 0.012 + i * 0.0022;
+    return new THREE.Vector3(0.05 + Math.cos(a) * rr + i * 0.006, 0.36 + Math.sin(a) * rr + i * 0.002, Math.sin(a * 0.5) * 0.02);
+  }));
+  cute.add(new THREE.Mesh(new THREE.TubeGeometry(tendril, 120, 0.007, 6), leafy));
+  const leafShape = new THREE.Shape();
+  leafShape.moveTo(0, 0); leafShape.bezierCurveTo(0.09, 0.04, 0.13, 0.17, 0, 0.27); leafShape.bezierCurveTo(-0.13, 0.17, -0.09, 0.04, 0, 0);
+  const leaf = new THREE.Mesh(new THREE.ShapeGeometry(leafShape, 10), leafy);
+  leaf.position.set(-0.03, 0.31, 0.02); leaf.rotation.set(-1.15, 0.5, 0.6);
+  cute.add(leaf);
+  cute.position.set(-0.7, 0.3 + cute.userData.lift, WALL_Z + 0.5); cute.rotation.y = 0.07;
+  k.add(shadowy(cute));
 
   // the witch's cauldron, with a swirling green brew that bubbles and pops
   const iron = new THREE.MeshStandardMaterial({ color: '#1e1c22', metalness: 0.75, roughness: 0.42, side: THREE.DoubleSide });
@@ -528,6 +560,54 @@ function paintSlice(f) {
   f.paint(L);
   const tex = (ctx, srgb) => { const t = new THREE.CanvasTexture(ctx.canvas); t.flipY = false; if (srgb) t.colorSpace = THREE.SRGBColorSpace; t.anisotropy = 8; return t; };
   return { map: tex(L.g, true), transmissionMap: tex(L.tg), bumpMap: tex(L.bg), emissiveMap: tex(L.eg, true) };
+}
+
+function paintParty({ g, tg, bg, eg, disk, rnd }) {
+  disk(g, TR, '#e89c00'); disk(tg, TR, '#909090');
+  const body = g.createRadialGradient(TC - TR * 0.2, TC - TR * 0.25, 0, TC, TC, TR * 0.93);
+  body.addColorStop(0, '#fff06a'); body.addColorStop(0.6, '#ffd21a'); body.addColorStop(1, '#ffae00');
+  // mostly opaque, so it stays emoji-yellow instead of taking on the board's brown
+  disk(g, TR * 0.93, body); disk(tg, TR * 0.93, '#a0a0a0'); disk(bg, TR * 0.93, '#808080'); disk(eg, TR * 0.93, '#8a8a8a');
+  const P = (u, v) => [TC + u * TR, TC + v * TR];
+  // confetti around the rim (it glows in its own colours)
+  const cols = ['#ff4f7b', '#3fb8ff', '#7be04a', '#b26bff', '#ff9d2e', '#ffffff'];
+  for (let i = 0; i < 60; i++) {
+    const a = rnd() * Math.PI * 2, r = TR * (0.62 + rnd() * 0.28), rot = rnd() * 3;
+    for (const ctx of [g, eg]) { ctx.save(); ctx.translate(TC + Math.cos(a) * r, TC + Math.sin(a) * r); ctx.rotate(rot); ctx.fillStyle = cols[i % cols.length]; ctx.fillRect(-9, -4, 18, 8); ctx.restore(); }
+  }
+  // a striped party hat with a pompom, worn at a jaunty angle
+  const hat = [P(-0.16, -0.33), P(0.42, -0.45), P(0.27, -0.8)];
+  const hatPath = ctx => { ctx.beginPath(); hat.forEach(([x, y], i) => i ? ctx.lineTo(x, y) : ctx.moveTo(x, y)); ctx.closePath(); };
+  g.save(); hatPath(g); g.clip();
+  g.fillStyle = '#3fb8ff'; g.fillRect(0, 0, TS, TS);
+  g.strokeStyle = '#ff4f7b'; g.lineWidth = 22;
+  for (let k = -12; k < 12; k++) { g.beginPath(); g.moveTo(TC + k * 50, TC - TR); g.lineTo(TC + k * 50 + TR, TC); g.stroke(); }
+  for (let k = 0; k < 14; k++) disk(g, 5, '#fff07a', TC + (rnd() * 0.5 - 0.1) * TR, TC - (0.4 + rnd() * 0.38) * TR);
+  g.restore();
+  hatPath(tg); tg.fillStyle = '#a0a0a0'; tg.fill();
+  hatPath(bg); bg.fillStyle = '#c0c0c0'; bg.fill();
+  hatPath(eg); eg.fillStyle = '#2a2a3a'; eg.fill();
+  for (const [ctx, col] of [[g, '#ffffff'], [tg, '#a0a0a0'], [bg, '#d0d0d0'], [eg, '#606060']]) disk(ctx, TR * 0.065, col, ...P(0.27, -0.8));
+  disk(g, TR * 0.035, '#ffd0dc', ...P(0.25, -0.82));
+  // happy ^ ^ eyes, a big open grin with a tongue, rosy cheeks
+  for (const [ctx, col] of [[g, '#3a2200'], [tg, '#404040'], [bg, '#606060'], [eg, '#000']]) {
+    ctx.strokeStyle = col; ctx.lineWidth = TR * 0.05; ctx.lineCap = 'round';
+    for (const sd of [-1, 1]) { ctx.beginPath(); ctx.arc(...P(sd * 0.25, 0.06), TR * 0.1, Math.PI * 1.15, Math.PI * 1.85); ctx.stroke(); }
+  }
+  const mouth = ctx => { ctx.beginPath(); ctx.ellipse(...P(0, 0.2), TR * 0.26, TR * 0.24, 0, 0, Math.PI); ctx.closePath(); };
+  mouth(g); g.fillStyle = '#6b1d12'; g.fill();
+  g.save(); mouth(g); g.clip();
+  g.fillStyle = '#ffffff'; g.fillRect(...P(-0.3, 0.17), TR * 0.6, TR * 0.07);
+  disk(g, TR * 0.15, '#ff7a8a', ...P(0, 0.44));
+  g.restore();
+  mouth(tg); tg.fillStyle = '#505050'; tg.fill();
+  mouth(bg); bg.fillStyle = '#505050'; bg.fill();
+  mouth(eg); eg.fillStyle = '#000'; eg.fill();
+  g.filter = 'blur(12px)';
+  for (const sd of [-1, 1]) disk(g, TR * 0.1, 'rgba(255,110,140,0.55)', ...P(sd * 0.46, 0.2));
+  g.filter = 'blur(6px)';
+  g.fillStyle = 'rgba(255,255,255,0.45)'; g.beginPath(); g.ellipse(...P(-0.5, -0.32), TR * 0.13, TR * 0.07, -0.7, 0, Math.PI * 2); g.fill();
+  g.filter = 'none';
 }
 
 function paintPumpkin({ g, tg, bg, eg, disk, rnd }) {
@@ -1263,17 +1343,22 @@ function setTool(t) {
 }
 document.querySelectorAll('[data-tool]').forEach(b => b.onclick = () => setTool(b.dataset.tool));
 
-let flavorKey = 'pumpkin';
+let flavorKey = 'party';
 function setFlavor(key) {
   flavorKey = key;
   const f = FLAVORS[key], t = paintSlice(f);
   for (const k of ['map', 'transmissionMap', 'bumpMap', 'emissiveMap']) { mat[k]?.dispose(); mat[k] = t[k]; }
   mat.attenuationColor.set(f.atten);
   mat.emissiveIntensity = f.glow;
+  mat.emissive.set('#ffffff');
   mat.needsUpdate = true;
   document.querySelectorAll('.chip').forEach(b => b.setAttribute('aria-pressed', b.dataset.key === key));
 }
-animators.push(t => { const f = FLAVORS[flavorKey]; if (f.flicker) mat.emissiveIntensity = f.glow * flicker(t, 4.2); });
+animators.push(t => {
+  const f = FLAVORS[flavorKey];
+  if (f.flicker) mat.emissiveIntensity = f.glow * flicker(t, 4.2);
+  if (f.party) mat.emissive.setHSL(t * 0.25 % 1, 1, 0.55);
+});
 const chips = document.getElementById('chips');
 for (const [key, f] of Object.entries(FLAVORS)) {
   const b = document.createElement('button');
