@@ -16,7 +16,7 @@ A spooky second kitchen lives alongside the citrus one in [`halloween/index.html
 
 <sub>Higher quality: [docs/media/halloween.mp4](docs/media/halloween.mp4)</sub>
 
-- **Seven flavours:** the **Party blob** drops by default. It's a grinning yellow blob in a party hat, and its glow cycles through the rainbow like the party-blob emoji. The others are Jack-o'-lantern (its carved face glows and flickers like a candle), Eyeball, Toxic slime, Spiderweb, Candy corn and Ghost. Each one is painted at runtime on `<canvas>`, with an extra *glow* layer that lights the jelly from inside.
+- **Seven flavours:** the **Party blob** drops by default. It's a grinning yellow 3D blob shaped like a fat water drop, wearing a party hat, and its glow cycles through the rainbow like the party-blob emoji. Slice it and each piece keeps its part of the dome. The others are Jack-o'-lantern (its carved face glows and flickers like a candle), Eyeball, Toxic slime, Spiderweb, Candy corn and Ghost. Each one is painted at runtime on `<canvas>`, with an extra *glow* layer that lights the jelly from inside.
 - **A haunted kitchen:** moonlight through a window onto a graveyard, glowing jack-o'-lanterns (including a cute one on the window sill with **SMB** carved into it), dripping candles, a bubbling cauldron, a jar of gummy eyeballs, a dangling spider and a couple of bats. Like the citrus kitchen, everything is generated in code with no image assets.
 - **Same controls** as the table below. With Pages enabled it lives at `https://maplerivertree.github.io/jelly_slice/halloween/`.
 

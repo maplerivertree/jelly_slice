@@ -393,22 +393,29 @@ The page exposes `window.citrusJelly` (pieces, `newSlice`, `setFruit`, `setTool`
 
 ### Worked example: the Halloween edition
 
-[`halloween/index.html`](../halloween/index.html) is a second, standalone page built this way. The polygon helpers, slab geometry, `Piece` solver, world, cutting and pointer code are copied unchanged from `index.html`, so if you fix a bug there, fix it in both files. The material, knife and UI sections have only the small tweaks listed below (plus a bone handle and a lighter stroke line). Here is what's different:
+[`halloween/index.html`](../halloween/index.html) is a second, standalone page built this way. The physics engine is copied from `index.html`, so if you fix a bug there, fix it in both files. In the Halloween copy the engine is extended so pieces can have a 3D shape (see below), and the material, knife and UI sections have small tweaks (plus a bone handle and a lighter stroke line). Here is what's different:
 
 - **Flavours instead of fruit.** Each `FLAVORS` entry has its own painter (`paintParty`, `paintPumpkin`, `paintEyeball`, `paintSlime`, `paintWeb`, `paintCandyCorn`, `paintGhost`). `paintSlice` gives every painter four layers: colour, transmission, bump, and a new **glow** layer. The glow layer becomes the shared material's `emissiveMap`, so the jack-o'-lantern's carved face, the slime's bubbles and the spider silk light up from inside. Because the map is in slice space like the others, the glow follows the face across cuts. The jack-o'-lantern's `emissiveIntensity` flickers like a candle. The default party blob paints a plain grey glow layer and cycles the material's `emissive` colour through the hues, so the whole blob shifts through the rainbow.
+- **3D shapes, not just slices.** A `Piece` can carry a `shape` (the party blob uses `BLOB`). It's still built as a rounded slab, but `buildSlab` stretches each vertex upward by `shape.s(ρ)`, where ρ is the distance from the original axis in rest space. That gives a fat drop that's 1.36 tall, and because ρ is measured in rest space, cut pieces keep their part of the dome. The rest of the engine follows from that:
+  - `shape.uv` projects the textures along the default camera's view direction, so the face lands on the front of the drop.
+  - Clusters are centred at the mid-height of each column. A cluster containing only the flat bottom face would make `Aqq` singular and fill the solver with NaN; `inv3` now also guards against that. The blob's clusters are larger (radius 0.9) so they span its height.
+  - Piece-vs-piece contact undoes the stretch before reusing the slab distance.
+  - The knife hovers above the peak.
 - **Faces land upright.** The slice textures use `flipY = false`, so canvas-down is `+z`, which is toward the default camera. `newSlice` only adds ±0.35 rad of yaw, so a jack-o'-lantern or ghost face reads the right way up when it lands.
 - **Painted opacity.** In a dark room the board shows through the jelly as a dark brown. Flavours that should look like candy (candy corn, the eyeball's white) paint low values into the transmission layer, so their diffuse colour carries.
 - **A dark environment map.** `RoomEnvironment` is too bright for night. `spookyRoom()` is a small scene (a dark box plus a few `MeshBasicMaterial` panels pushed above 1.0: cold moonlight, pumpkin orange, candle amber, witchy purple) baked with `PMREMGenerator.fromScene`. The coloured highlights on the jelly come from those panels. The knife's steel gets `envMapIntensity: 3` so it doesn't turn black.
 - **Pumpkin carvings are functions.** `lantern(r, carve, power, seed, opts)` takes a carving that paints itself into the equirectangular skin and glow maps: `faceCarve` draws the classic face path, and `textCarve` draws a word. The window-sill pumpkin uses `textCarve('SMB', …)` in the Fredoka web font, and repaints once `document.fonts.load` resolves. `opts` makes that pumpkin squatter, brighter and less grooved, which reads as cuter.
 - **Point lights without shadows** in the big jack-o'-lantern, over the candles and above the cauldron. The small and SMB pumpkins only glow, because every point light adds work for every lit pixel. A light right next to a surface blows out, so keep lights a little away from the counter and keep their power low.
-- **Keeping it smooth.** This scene is heavier than it looks: the jelly's transmission re-renders the whole opaque scene into a full-resolution, multisampled, mipmapped target every frame. Measured with a software renderer, these changes made frames about 1.9× faster on a Retina-sized canvas:
+- **Keeping it smooth.** This scene is heavier than it looks: the jelly's transmission re-renders the whole opaque scene into a multisampled, mipmapped target every frame. Measured with a software renderer, the page went from 3.5 s to 1.1 s per frame on a Retina-sized canvas (3.1× faster), and from 1.2 s to 0.58 s at 1× (2.1× faster). The changes:
+  - **The transmission pass renders at half resolution.** In three r160 its target is sized from `renderer.getDrawingBufferSize`, which nothing else in three calls, so the page wraps that function to return half the size. This was the single biggest win (−37%), and the blurred refraction hides it. It depends on that three version, which the importmap pins.
   - the pixel ratio is capped at 1.5×
-  - the glass jar is single-sided (in three.js r160, a double-sided transmissive mesh repeats part of the transmission pass)
+  - the glass jar is single-sided (a double-sided transmissive mesh repeats part of the transmission pass)
+  - the counter and board use `MeshStandardMaterial` instead of Physical
   - meshes smaller than 0.3 units don't cast shadows
   - shadows use `PCFShadowMap`
   - there are three point lights instead of five
 
-  On top of that, **adaptive resolution** in the loop lowers the pixel ratio in 0.15 steps, down to 0.6, after 15 consecutive slow frames (> 25 ms). It raises it again after 4 s of fast frames. These tweaks would help `index.html` too.
+  On top of that, **adaptive resolution** keeps a running average of frame time. While it's above 22 ms, the pixel ratio drops in 0.15 steps, down to 0.6. After 4 s with the average under 17.5 ms, it creeps back up. These tweaks would help `index.html` too.
 - **`animators`**, a list of `t => {}` callbacks run once per rendered frame. They drive flickering lights and flames, the brew's swirl and popping bubbles, the spider's bob and the bats' flight. The physics is not involved, so these never touch the fixed time step.
 
 ---
