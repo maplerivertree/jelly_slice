@@ -8,6 +8,18 @@ A squishy, translucent citrus-slice jelly you can poke, stretch, toss — and **
 
 **Live demo:** enable GitHub Pages (Settings → Pages → Deploy from branch → `main` / root) and open `https://maplerivertree.github.io/jelly_slice/`.
 
+## 🎃 Halloween edition
+
+A spooky second kitchen lives alongside the citrus one in [`halloween/index.html`](halloween/index.html). It uses the same squishy physics and the same knife, with a new kitchen and new jellies.
+
+![Slicing a glowing jack-o'-lantern jelly in the haunted kitchen](docs/media/halloween.gif)
+
+<sub>Higher quality: [docs/media/halloween.mp4](docs/media/halloween.mp4)</sub>
+
+- **Six flavours:** Jack-o'-lantern (its carved face glows and flickers like a candle), Eyeball, Toxic slime, Spiderweb, Candy corn and Ghost. Each one is painted at runtime on `<canvas>`, with an extra *glow* layer that lights the jelly from inside.
+- **A haunted kitchen:** moonlight through a window onto a graveyard, glowing jack-o'-lanterns, dripping candles, a bubbling cauldron, a jar of gummy eyeballs, a dangling spider and a couple of bats. Like the citrus kitchen, everything is generated in code with no image assets.
+- **Same controls** as the table below. With Pages enabled it lives at `https://maplerivertree.github.io/jelly_slice/halloween/`.
+
 ## Run it locally
 
 It's a single file: [`index.html`](index.html). Three.js is loaded from a CDN, so you only need a browser with WebGL2.
@@ -16,7 +28,7 @@ It's a single file: [`index.html`](index.html). Three.js is loaded from a CDN, s
 python -m http.server 8000
 ```
 
-Then open <http://localhost:8000>. (Double-clicking `index.html` usually works too, but some browsers are stricter about ES modules on `file://`.)
+Then open <http://localhost:8000>, or <http://localhost:8000/halloween/> for the Halloween edition. (Double-clicking `index.html` usually works too, but some browsers are stricter about ES modules on `file://`.)
 
 ## Controls
 
@@ -30,7 +42,7 @@ Then open <http://localhost:8000>. (Double-clicking `index.html` usually works t
 | | `Q` / `E` | rotate the blade |
 | | right-drag | orbit the camera |
 | any | `R` / **New slice** | drop a fresh slice |
-| any | fruit chips | orange, lemon, lime, grapefruit, blood orange |
+| any | fruit chips | orange, lemon, lime, grapefruit, blood orange (Halloween: six spooky flavours) |
 | any | **Firmness** slider | gooey ↔ gummy |
 
 ## How it's built (short version)
@@ -48,8 +60,9 @@ Then open <http://localhost:8000>. (Double-clicking `index.html` usually works t
 
 ```
 index.html              the whole app (≈1000 lines, sectioned with "// ----------" headers)
+halloween/index.html    the Halloween edition: same engine, haunted kitchen, six spooky flavours
 docs/HOW-IT-WORKS.md    detailed build notes
-docs/media/             demo GIF + video
+docs/media/             demo GIFs + videos (citrus and Halloween)
 LICENSE                 MIT
 ```
 
