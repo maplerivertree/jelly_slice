@@ -12,7 +12,7 @@ A squishy, translucent citrus-slice jelly you can poke, stretch, toss — and **
 
 A spooky second kitchen lives alongside the citrus one in [`halloween/index.html`](halloween/index.html). It uses the same squishy physics and the same knife, with a new kitchen and new jellies.
 
-![Slicing the party blob jelly in the haunted kitchen, with the SMB pumpkin on the window sill](docs/media/halloween.gif)
+![Slicing the 3D party blob in the haunted kitchen, with the SMB pumpkin on the window sill](docs/media/halloween.gif)
 
 <sub>Higher quality: [docs/media/halloween.mp4](docs/media/halloween.mp4)</sub>
 
