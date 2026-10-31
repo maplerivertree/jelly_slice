@@ -400,7 +400,15 @@ The page exposes `window.citrusJelly` (pieces, `newSlice`, `setFruit`, `setTool`
 - **Painted opacity.** In a dark room the board shows through the jelly as a dark brown. Flavours that should look like candy (candy corn, the eyeball's white) paint low values into the transmission layer, so their diffuse colour carries.
 - **A dark environment map.** `RoomEnvironment` is too bright for night. `spookyRoom()` is a small scene (a dark box plus a few `MeshBasicMaterial` panels pushed above 1.0: cold moonlight, pumpkin orange, candle amber, witchy purple) baked with `PMREMGenerator.fromScene`. The coloured highlights on the jelly come from those panels. The knife's steel gets `envMapIntensity: 3` so it doesn't turn black.
 - **Pumpkin carvings are functions.** `lantern(r, carve, power, seed, opts)` takes a carving that paints itself into the equirectangular skin and glow maps: `faceCarve` draws the classic face path, and `textCarve` draws a word. The window-sill pumpkin uses `textCarve('SMB', …)` in the Fredoka web font, and repaints once `document.fonts.load` resolves. `opts` makes that pumpkin squatter, brighter and less grooved, which reads as cuter.
-- **Point lights without shadows** inside each jack-o'-lantern, over the candles and above the cauldron. They are cheap, but a light right next to a surface blows out, so keep them a little away from the counter and keep their power low.
+- **Point lights without shadows** in the big jack-o'-lantern, over the candles and above the cauldron. The small and SMB pumpkins only glow, because every point light adds work for every lit pixel. A light right next to a surface blows out, so keep lights a little away from the counter and keep their power low.
+- **Keeping it smooth.** This scene is heavier than it looks: the jelly's transmission re-renders the whole opaque scene into a full-resolution, multisampled, mipmapped target every frame. Measured with a software renderer, these changes made frames about 1.9× faster on a Retina-sized canvas:
+  - the pixel ratio is capped at 1.5×
+  - the glass jar is single-sided (in three.js r160, a double-sided transmissive mesh repeats part of the transmission pass)
+  - meshes smaller than 0.3 units don't cast shadows
+  - shadows use `PCFShadowMap`
+  - there are three point lights instead of five
+
+  On top of that, **adaptive resolution** in the loop lowers the pixel ratio in 0.15 steps, down to 0.6, after 15 consecutive slow frames (> 25 ms). It raises it again after 4 s of fast frames. These tweaks would help `index.html` too.
 - **`animators`**, a list of `t => {}` callbacks run once per rendered frame. They drive flickering lights and flames, the brew's swirl and popping bubbles, the spider's bob and the bats' flight. The physics is not involved, so these never touch the fixed time step.
 
 ---

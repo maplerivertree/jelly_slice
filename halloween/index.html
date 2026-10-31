@@ -85,12 +85,15 @@ const FLAVORS = {
 let renderer;
 try { renderer = new THREE.WebGLRenderer({ antialias:true }); }
 catch (e) { document.getElementById('err').style.display = 'grid'; throw e; }
-renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
+// Retina screens at full 2× resolution were the main cost (transmission re-renders the scene at that size too),
+// so cap at 1.5× and let the loop drop lower on slow machines (see "adaptive resolution" below)
+const MAX_DPR = Math.min(devicePixelRatio, 1.5);
+renderer.setPixelRatio(MAX_DPR);
 renderer.setSize(innerWidth, innerHeight);
 renderer.toneMapping = THREE.ACESFilmicToneMapping;
 renderer.toneMappingExposure = 1.15;
 renderer.shadowMap.enabled = true;
-renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+renderer.shadowMap.type = THREE.PCFShadowMap; // cheaper than PCFSoft; moon.shadow.radius still softens the edges
 document.body.prepend(renderer.domElement);
 const canvas = renderer.domElement;
 
@@ -268,7 +271,8 @@ function facePath(ctx, x, y, s, angry = false) {
 
 function buildKitchen() {
   const k = new THREE.Group();
-  const shadowy = o => { o.traverse(m => { if (m.isMesh) { m.castShadow = true; m.receiveShadow = true; } }); return o; };
+  // tiny meshes (eyeballs, drips, legs, candy) skip the shadow pass: their shadows are barely visible and each one is a draw call
+  const shadowy = o => { o.traverse(m => { if (m.isMesh) { m.geometry.computeBoundingSphere(); m.castShadow = m.geometry.boundingSphere.radius * Math.max(...m.scale.toArray()) >= 0.3; m.receiveShadow = true; } }); return o; };
 
   // slate counter + old stone wall
   const counter = new THREE.Mesh(new THREE.BoxGeometry(22, 0.6, 9), new THREE.MeshPhysicalMaterial({ map: slateTex, roughness: 0.3, clearcoat: 0.6, clearcoatRoughness: 0.2 }));
@@ -363,18 +367,20 @@ function buildKitchen() {
     sgeo.computeVertexNormals();
     const stem = new THREE.Mesh(sgeo, new THREE.MeshStandardMaterial({ color: '#4f4a22', roughness: 0.9 }));
     stem.position.y = (squash - 0.06) * r; g.add(stem);
-    const light = new THREE.PointLight('#ff8a2a', power, 0, 2); light.position.set(0, r * 0.35, r * 0.45); g.add(light);
-    animators.push(t => { const f = flicker(t, seed); light.intensity = power * f; mat.emissiveIntensity = 1.6 * f; });
+    // every point light is paid for by every lit pixel, so only some lanterns get one (power 0 = glow only)
+    const light = power > 0 ? new THREE.PointLight('#ff8a2a', power, 0, 2) : null;
+    if (light) { light.position.set(0, r * 0.35, r * 0.45); g.add(light); }
+    animators.push(t => { const f = flicker(t, seed); if (light) light.intensity = power * f; mat.emissiveIntensity = 1.6 * f; });
     g.userData.lift = -geo.boundingBox.min.y; // raise by this to sit on a surface
     return g;
   };
   const big = lantern(0.85, faceCarve(false), 8, 0); big.position.set(-4.2, COUNTER_Y + big.userData.lift, -2.6); big.rotation.y = 0.45;
-  const small = lantern(0.5, faceCarve(true), 0.9, 2.7); small.position.set(-3.75, COUNTER_Y + small.userData.lift, -0.7); small.rotation.y = 0.75;
+  const small = lantern(0.5, faceCarve(true), 0, 2.7); small.position.set(-3.75, COUNTER_Y + small.userData.lift, -0.7); small.rotation.y = 0.75;
   k.add(shadowy(big), shadowy(small));
 
   // a cute one on the window sill, under the moon: squat, bright, "SMB" carved in rounded letters, with a curly vine and a leaf
   const SMB_FONT = '700 132px Fredoka, "Arial Rounded MT Bold", "Trebuchet MS", sans-serif';
-  const cute = lantern(0.5, textCarve('SMB', SMB_FONT), 1.2, 5.1, { squash: 0.72, groove: 0.07, skinCol: '#f68c22', font: SMB_FONT });
+  const cute = lantern(0.5, textCarve('SMB', SMB_FONT), 0, 5.1, { squash: 0.72, groove: 0.07, skinCol: '#f68c22', font: SMB_FONT });
   const leafy = new THREE.MeshStandardMaterial({ color: '#4f9a2c', roughness: 0.55, side: THREE.DoubleSide });
   const tendril = new THREE.CatmullRomCurve3(Array.from({ length: 28 }, (_, i) => {
     const a = i * 0.55, rr = 0.012 + i * 0.0022;
@@ -436,14 +442,14 @@ function buildKitchen() {
     g.fillStyle = '#fff'; g.beginPath(); g.arc(w * 0.25 - 5, h * 0.5 - 6, 3, 0, 7); g.fill();
   });
   const jarProf = [[0, 0.02], [0.55, 0.02], [0.62, 0.1], [0.62, 1.5], [0.5, 1.62], [0.48, 1.75]].map(([x, y]) => new THREE.Vector2(x, y));
-  const jar = new THREE.Mesh(new THREE.LatheGeometry(jarProf, 48), new THREE.MeshPhysicalMaterial({ color: '#ffffff', transmission: 1, roughness: 0.04, thickness: 0.08, ior: 1.5, side: THREE.DoubleSide }));
+  const jar = new THREE.Mesh(new THREE.LatheGeometry(jarProf, 48), new THREE.MeshPhysicalMaterial({ color: '#ffffff', transmission: 1, roughness: 0.04, thickness: 0.08, ior: 1.5 })); // single-sided: a double-sided transmissive mesh makes three.js redo the transmission pass every frame
   const cork = new THREE.Mesh(new THREE.CylinderGeometry(0.47, 0.44, 0.28, 32), new THREE.MeshStandardMaterial({ color: '#8a6440', roughness: 0.9 }));
   cork.position.y = 1.85;
   const paintLabel = (g, w, h) => {
     g.fillStyle = '#d8c69a'; g.fillRect(0, 0, w, h);
     g.strokeStyle = '#5a3a1a'; g.lineWidth = 6; g.strokeRect(10, 10, w - 20, h - 20);
     g.fillStyle = '#3a1408'; g.textAlign = 'center'; g.textBaseline = 'middle';
-    g.font = '86px Creepster, Georgia, serif'; g.fillText('EYE of NEWT', w / 2, h * 0.47);
+    g.font = '86px Creepster, Georgia, serif'; g.fillText('Classic', w / 2, h * 0.47);
     g.font = '28px Georgia, serif'; g.fillText('· fresh, blinking ·', w / 2, h * 0.8);
   };
   const labelTex = canvasTex(512, 224, paintLabel);
@@ -1484,10 +1490,21 @@ setTool('hand');
 newSlice();
 window.halloweenJelly = { get pieces() { return pieces; }, newSlice, setFlavor, setTool, startCut, worldStep, updateCut }; // handy for console tinkering
 
+// adaptive resolution: while frames are slow, render fewer pixels; creep back up once there's headroom
+const MIN_DPR = 0.6;
+let dpr = MAX_DPR, slowFrames = 0, fastFrames = 0, warmup = 60; // the first frames include shader compiles
+function adaptResolution(sec) {
+  if (warmup > 0) { warmup--; return; }
+  if (sec > 1 / 40) { slowFrames++; fastFrames = 0; } else if (sec < 1 / 55) { fastFrames++; slowFrames = 0; }
+  if (slowFrames > 15 && dpr > MIN_DPR) { dpr = Math.max(MIN_DPR, dpr - 0.15); renderer.setPixelRatio(dpr); slowFrames = 0; }
+  else if (fastFrames > 240 && dpr < MAX_DPR) { dpr = Math.min(MAX_DPR, dpr + 0.1); renderer.setPixelRatio(dpr); fastFrames = 0; }
+}
+
 const DT = 1 / 60, SUB = 6;
 let acc = 0, last = performance.now();
 function frame(now) {
-  const dt = Math.min(0.1, (now - last) / 1000); last = now; acc += dt;
+  const raw = (now - last) / 1000, dt = Math.min(0.1, raw); last = now; acc += dt;
+  if (raw < 0.5) adaptResolution(raw); // ignore the gap after a hidden tab
   const f = +firm.value, alpha = 0.05 + 0.45 * f * f, beta = 0.45 - 0.25 * f;
   let steps = 0;
   while (acc >= DT && steps < 3) {
